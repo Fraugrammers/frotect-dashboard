@@ -4,14 +4,15 @@ import { Terminal, type ITerminalOptions, type ITheme } from "@xterm/xterm"
 import { FitAddon } from "@xterm/addon-fit"
 import "@xterm/xterm/css/xterm.css"
 
-type LogEvent = {
-  id: string
-  ts: string
-  level: "DEBUG" | "INFO" | "WARN" | "ERROR" | "AUTH" | "ATTACK"
-  service: string
-  host: string
-  message: string
-  meta?: Record<string, unknown>
+type NetLog = {
+  timestamp: string
+  src_ip: string
+  src_port: number
+  dst_ip: string
+  dst_port: number
+  protocol: string
+  session: string
+  label: number
 }
 
 const THEME: ITheme = {
@@ -21,28 +22,16 @@ const THEME: ITheme = {
   selectionBackground: "#33415588",
 }
 
-const C = {
-  DEBUG: "\x1b[38;5;244m",
-  INFO: "\x1b[38;5;33m",
-  WARN: "\x1b[38;5;214m",
-  ERROR: "\x1b[31m",
-  AUTH: "\x1b[36m",
-  ATTACK: "\x1b[35m",
-  RESET: "\x1b[0m",
-}
-
-function format(ev: LogEvent) {
-  const t = new Date(ev.ts).toISOString()
-  const meta = ev.meta
-    ? " " + Object.entries(ev.meta).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(" ")
-    : ""
-  const color = C[ev.level] ?? ""
-  return `${color}[${ev.level}]${C.RESET} ${t} ${ev.host} ${ev.service} - ${ev.message}${meta}`
+function format(ev: NetLog) {
+  // format like a real terminal log
+  return `${new Date(ev.timestamp).toISOString()} ${ev.protocol.toUpperCase()} ` +
+         `${ev.src_ip}:${ev.src_port} -> ${ev.dst_ip}:${ev.dst_port} ` +
+         `(session=${ev.session}, label=${ev.label})`
 }
 
 export default function TerminalView({
-  logsUrl = "/mock-logs.json",
-  intervalMs = 1500,
+  logsUrl = "/json/simulated_cowrie_demo_hour.json",
+  intervalMs = 1200, // faster playback
 }: {
   logsUrl?: string
   intervalMs?: number
@@ -71,12 +60,12 @@ export default function TerminalView({
     termRef.current = term
     fitRef.current = fit
 
-    term.writeln("\x1b[38;5;82mFrotect demo log playback\x1b[0m")
+    term.writeln("\x1b[38;5;82mFrotect network log playback\x1b[0m")
 
     const onResize = () => fit.fit()
     window.addEventListener("resize", onResize)
 
-    requestAnimationFrame(() => term.focus());
+    requestAnimationFrame(() => term.focus())
 
     return () => {
       window.removeEventListener("resize", onResize)
@@ -88,7 +77,7 @@ export default function TerminalView({
   useEffect(() => {
     let timer: number | null = null
     let idx = 0
-    let events: LogEvent[] = []
+    let events: NetLog[] = []
     let cancelled = false
 
     const startLoop = () => {
@@ -109,25 +98,25 @@ export default function TerminalView({
         const res = await fetch(logsUrl, {
           headers: { Accept: "application/json, text/plain, */*" },
         })
-        const ct = res.headers.get("content-type") || ""
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const ct = res.headers.get("content-type") || ""
 
         if (ct.includes("application/json")) {
           const data = await res.json()
           events = Array.isArray(data) ? data : data.events
         } else {
+          // fallback: NDJSON/plain text
           const text = await res.text()
-          events = text
-            .split(/\r?\n/)
-            .filter(Boolean)
-            .map((line, i) => ({
-              id: String(i + 1),
-              ts: new Date(Date.now() + i * 1000).toISOString(),
-              level: "INFO",
-              service: "raw",
-              host: "demo",
-              message: line,
-            }))
+          events = text.split(/\r?\n/).filter(Boolean).map((line, i) => ({
+            timestamp: new Date(Date.now() + i * 1000).toISOString(),
+            src_ip: "0.0.0.0",
+            src_port: 0,
+            dst_ip: "0.0.0.0",
+            dst_port: 0,
+            protocol: "tcp",
+            session: `mock-${i}`,
+            label: 0,
+          }))
         }
 
         if (!Array.isArray(events) || events.length === 0) {
@@ -136,7 +125,7 @@ export default function TerminalView({
 
         startLoop()
       } catch (e) {
-        termRef.current?.writeln(`${C.ERROR}[FETCH] ${String(e)}${C.RESET}`)
+        termRef.current?.writeln(`[FETCH ERROR] ${String(e)}`)
       }
     }
 

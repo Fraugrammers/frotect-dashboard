@@ -1,17 +1,16 @@
-import { NavLink } from "react-router-dom"
-import {
-  Lock, Terminal, FileText
-} from "lucide-react"
+import { NavLink } from "react-router-dom";
+import { Lock, Terminal } from "lucide-react";
+import TimeCard from "../TimeCard";
 
 const nav = [
   { to: "/overview", label: "OVERVIEW", icon: Terminal, enabled: true },
-  { to: "/analyzer", label: "ANALYZER", icon: FileText, enabled: true },
-]
+  // { to: "/analyzer", label: "ANALYZER", icon: FileText, enabled: true },
+];
 
 export default function Sidebar() {
   return (
-    <aside className="w-[300px] h-screen bg-[#1E1F23] p-6"> 
-      <div className="h-full rounded-2xl border border-white/10 bg-[#17181B] shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset,0_6px_20px_rgba(0,0,0,0.4)]">
+    <aside className="w-[300px] h-screen bg-[#1E1F23] p-6">
+      <div className="h-full flex flex-col rounded-2xl border border-white/10 bg-[#17181B] shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset,0_6px_20px_rgba(0,0,0,0.4)]">
         <div className="flex items-center gap-3 p-4 pb-3">
           <div className="grid place-items-center rounded-xl p-2">
             <img src="/img/logo.svg" />
@@ -25,10 +24,10 @@ export default function Sidebar() {
             </div>
           </div>
         </div>
-        <div className="h-px w-full bg-white/10" />
-        <div className="flex items-center gap-2 px-4 pt-3 pb-2">
-        </div>
-        <nav className="px-2 pb-3">
+
+        <div className="h-px w-full bg-white/10"/>
+
+        <nav className="px-2 pb-3 mt-4">
           <ul className="space-y-1">
             {nav.map(({ to, label, icon: Icon, enabled }) => (
               <li key={to}>
@@ -42,7 +41,7 @@ export default function Sidebar() {
                         "border border-transparent hover:border-white/10",
                         isActive
                           ? "bg-white/5 border-white/10"
-                          : "bg-transparent"
+                          : "bg-transparent",
                       ].join(" ")
                     }
                   >
@@ -63,7 +62,14 @@ export default function Sidebar() {
             ))}
           </ul>
         </nav>
+        <div className="mt-auto p-4">
+          <TimeCard
+            city="Almaty"
+            country="Kazakhstan"
+            tzLabel="UTC-3"
+          />
+        </div>
       </div>
     </aside>
-  )
+  );
 }

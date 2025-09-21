@@ -1,120 +1,121 @@
 import { useEffect, useMemo, useState } from "react"
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts"
 
-type LogEvent = {
-  id: string
-  ts: string
-  level: "DEBUG" | "INFO" | "WARN" | "ERROR" | "AUTH" | "ATTACK"
-  service: string
-  host: string
-  message: string
-  meta?: Record<string, unknown>
+type CowrieEvent = {
+  timestamp: string
+  label: 0 | 1
 }
 
-const LEVELS = ["DEBUG", "INFO", "WARN", "ERROR", "AUTH", "ATTACK"] as const
-const COLORS: Record<(typeof LEVELS)[number], string> = {
-  DEBUG: "#9ca3af",
-  INFO:  "#3b82f6",
-  WARN:  "#f59e0b",
-  ERROR: "#ef4444",
-  AUTH:  "#06b6d4",
-  ATTACK:"#a855f7",
+function parseNdjson(text: string): CowrieEvent[] {
+  return text
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => {
+      const o = JSON.parse(line)
+      return { timestamp: String(o.timestamp), label: Number(o.label) as 0 | 1 }
+    })
 }
 
-function parsePayload(raw: unknown): LogEvent[] {
-  if (Array.isArray(raw)) return raw as LogEvent[]
-  if (raw && typeof raw === "object" && Array.isArray((raw as any).events)) {
-    return (raw as any).events as LogEvent[]
-  }
-  return []
+function parseClockToSeconds(hms: string): number {
+  const m = /^(\d{1,2}):(\d{2}):(\d{2})$/.exec(hms.trim())
+  if (!m) return 0
+  const [_, h, mi, s] = m
+  return Number(h) * 3600 + Number(mi) * 60 + Number(s)
 }
 
-function bucketKey(ts: string) {
+function eventSecondsLocal(ts: string): number {
   const d = new Date(ts)
-  return d.toLocaleTimeString("en-GB", { hour12: false })
+  return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()
 }
 
-export default function LogsByLevelChart({
-  logsUrl = "/mock-logs.json",
-  stepMs = 1500,
-}: { logsUrl?: string; stepMs?: number }) {
-  const [all, setAll] = useState<LogEvent[]>([])
+export default function CowrieLabelChartProgressive({
+  dataUrl = "/api/logs/charts",
+  stepMs = 250,
+  loop = true,
+  startAt = "18:05:40",
+}: {
+  dataUrl?: string
+  stepMs?: number
+  loop?: boolean
+  startAt?: string
+}) {
+  const [rows, setRows] = useState<CowrieEvent[]>([])
+  const [cursorCount, setCursorCount] = useState(0)
+  const [startIdx, setStartIdx] = useState(0)
   const [err, setErr] = useState<string | null>(null)
-  const [cursor, setCursor] = useState(0)
-  const [hidden, setHidden] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
-    let on = true
+    let alive = true
     ;(async () => {
       try {
-        const res = await fetch(logsUrl, { headers: { Accept: "application/json, text/plain, */*" } })
+        const res = await fetch(dataUrl, { headers: { Accept: "application/json, text/plain, */*" } })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
         const ct = res.headers.get("content-type") || ""
-        let data: LogEvent[] = []
+        let data: CowrieEvent[] = []
+
         if (ct.includes("application/json")) {
-          data = parsePayload(await res.json())
+          const j = await res.json()
+          const arr: any[] = Array.isArray(j) ? j : j.events || []
+          data = arr.map((o) => ({ timestamp: String(o.timestamp), label: Number(o.label) as 0 | 1 }))
         } else {
-          const text = await res.text()
-          data = text.split(/\r?\n/).filter(Boolean).map((line, i) => ({
-            id: String(i + 1),
-            ts: new Date(Date.now() + i * 1000).toISOString(),
-            level: "INFO",
-            service: "raw",
-            host: "demo",
-            message: line,
-          }))
+          data = parseNdjson(await res.text())
         }
-        if (on) {
-          setAll(data)
+
+        data.sort((a, b) => +new Date(a.timestamp) - +new Date(b.timestamp))
+
+        if (!alive) return
+
+        const targetSec = parseClockToSeconds(startAt)
+        let idx = 0
+        for (let i = 0; i < data.length; i++) {
+          if (eventSecondsLocal(data[i].timestamp) >= targetSec) { idx = i; break }
+          if (i === data.length - 1) idx = 0
         }
+
+        setRows(data)
+        setStartIdx(idx)
+        setCursorCount(data.length ? 1 : 0)
       } catch (e: any) {
-        if (on) setErr(String(e))
+        if (alive) setErr(String(e))
       }
     })()
-    return () => { on = false }
-  }, [logsUrl])
+    return () => { alive = false }
+  }, [dataUrl, startAt])
 
   useEffect(() => {
-    if (all.length === 0) return
+    if (rows.length === 0) return
     const id = window.setInterval(() => {
-      setCursor(prev => (prev + 1 > all.length ? 1 : prev + 1))
+      setCursorCount((n) => {
+        const next = n + 1
+        return next > rows.length ? (loop ? 1 : rows.length) : next
+      })
     }, stepMs)
     return () => window.clearInterval(id)
-  }, [all.length, stepMs])
-
-  const visible = useMemo(
-    () => all.slice(0, Math.max(0, Math.min(cursor, all.length))),
-    [all, cursor]
-  )
+  }, [rows.length, stepMs, loop])
 
   const data = useMemo(() => {
-    const map = new Map<string, Record<string, number>>()
-    const order: string[] = []
-    for (const ev of visible) {
-      const key = bucketKey(ev.ts)
-      if (!map.has(key)) {
-        map.set(key, Object.fromEntries(LEVELS.map(l => [l, 0])) as Record<string, number>)
-        order.push(key)
-      }
-      const row = map.get(key)!
-      row[ev.level] = (row[ev.level] || 0) + 1
-    }
-    return order.map(t => ({ t, ...(map.get(t) as Record<string, number>) }))
-  }, [visible])
+    if (rows.length === 0 || cursorCount === 0) return []
+    const end = Math.min(startIdx + cursorCount, rows.length)
+    const slice = rows.slice(startIdx, end)
+    return slice.map((r) => ({
+      x: new Date(r.timestamp).getTime(),
+      label: r.label,
+    }))
+  }, [rows, startIdx, cursorCount])
 
-  const handleLegendClick = (o: any) => {
-    const key = o?.dataKey as string
-    setHidden(h => ({ ...h, [key]: !h[key] }))
-  }
+  const fmtTick = (ms: number) =>
+    new Date(ms).toLocaleTimeString("en-GB", { hour12: false })
 
   return (
     <div className="rounded-xl border border-white/10 bg-[#17181B] p-4">
       <div className="mb-3 flex items-end justify-between">
-        <h3 className="font-semibold text-white">Logs by level</h3>
-        <span className="text-xs text-white/50">{visible.length}/{all.length} lines</span>
+        <h3 className="font-semibold text-white">Cowrie labels over time</h3>
+        <span className="text-xs text-white/50">
+          {Math.min(cursorCount, rows.length)}/{rows.length} points
+        </span>
       </div>
 
       {err && <div className="text-red-400 text-sm mb-2">Failed to load: {err}</div>}
@@ -124,36 +125,39 @@ export default function LogsByLevelChart({
       ) : (
         <div className="relative overflow-hidden" style={{ width: "100%", height: 280 }}>
           <ResponsiveContainer>
-            <AreaChart data={data} margin={{ top: 40, right: 10, left: 0, bottom: 0 }}>
+            <LineChart data={data} margin={{ top: 36, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-              <XAxis dataKey="t" tick={{ fill: "rgba(255,255,255,0.7)", fontSize: 12 }} />
-              <YAxis allowDecimals={false} tick={{ fill: "rgba(255,255,255,0.7)", fontSize: 12 }} />
-
-              <Legend wrapperStyle={{ color: "#fff" }} onClick={handleLegendClick} />
-
+              <XAxis
+                dataKey="x"
+                type="number"
+                domain={["auto", "auto"]}
+                tickFormatter={fmtTick}
+                tick={{ fill: "rgba(255,255,255,0.7)", fontSize: 12 }}
+              />
+              <YAxis
+                dataKey="label"
+                domain={[0, 1]}
+                ticks={[0, 1]}
+                allowDecimals={false}
+                tick={{ fill: "rgba(255,255,255,0.7)", fontSize: 12 }}
+              />
               <Tooltip
-                position={{ y: 8 }}                                
+                position={{ y: 8 }}
                 allowEscapeViewBox={{ x: true, y: false }}
                 wrapperStyle={{ pointerEvents: "none", zIndex: 50 }}
-                contentStyle={{ background: "#111318", border: "1px solid rgba(255,255,255,0.1)" }}
-                labelStyle={{ color: "#fff" }}
+                contentStyle={{ background: "#111318", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" }}
+                labelFormatter={(ms) => fmtTick(Number(ms))}
+                formatter={(v) => [String(v), "label"]}
               />
-
-              {LEVELS.map((lvl) => (
-                <Area
-                  key={lvl}
-                  type="monotone"
-                  dataKey={lvl}
-                  stackId="1"
-                  stroke={COLORS[lvl]}
-                  fill={COLORS[lvl]}
-                  fillOpacity={0.35}
-                  strokeWidth={2}
-                  isAnimationActive={false}
-                  hide={!!hidden[lvl]}
-                />
-              ))}
-            </AreaChart>
+              <Line
+                type="stepAfter"
+                dataKey="label"
+                stroke="#22c55e"
+                strokeWidth={2}
+                dot={{ r: 1.75, fill: "#22c55e", strokeWidth: 0 }}
+                isAnimationActive={false}
+              />
+            </LineChart>
           </ResponsiveContainer>
         </div>
       )}

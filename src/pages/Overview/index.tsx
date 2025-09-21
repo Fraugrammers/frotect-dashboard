@@ -5,10 +5,10 @@ export default function OverviewPage() {
   return (
     <div>
       <div className="p-4">
-        <TerminalView logsUrl="/json/mock-logs.json"/>
+        <TerminalView logsUrl="/api/logs"/>
       </div>
       <div className="p-3">
-        <LogsByLevelChart logsUrl="/json/mock-logs.json" />
+        <LogsByLevelChart logsUrl="/api/logs/charts" />
       </div>
     </div>
   );
