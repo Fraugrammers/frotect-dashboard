@@ -1,11 +1,11 @@
 import { NavLink } from "react-router-dom"
 import {
-  Mail, Lock, Terminal,
+  Lock, Terminal, FileText
 } from "lucide-react"
 
 const nav = [
   { to: "/overview", label: "OVERVIEW", icon: Terminal, enabled: true },
-  { to: "/communication", label: "COMMUNICATION", icon: Mail, enabled: true },
+  { to: "/analyzer", label: "ANALYZER", icon: FileText, enabled: true },
 ]
 
 export default function Sidebar() {

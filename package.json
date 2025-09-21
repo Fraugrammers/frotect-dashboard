@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ant-design/icons": "^5.4.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.3",
@@ -18,7 +17,6 @@
     "@types/react-router-dom": "^5.3.3",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
-    "antd": "^5.19.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.12",
@@ -28,6 +26,7 @@
     "material-icons": "^1.13.12",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-is": "^19.1.1",
     "react-redux": "^9.2.0",
     "react-router": "^7.9.1",
     "react-router-dom": "^7.9.1",

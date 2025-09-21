@@ -1,0 +1,44 @@
+{
+  "reports": [
+    {
+      "id": "rpt-001",
+      "name": "Incident Summary – Web App (Sep 2025).pdf",
+      "url": "/docs/incident-summary-sep-2025.pdf",
+      "sizeBytes": 824320,
+      "createdAt": "2025-09-18T09:30:00Z",
+      "tags": ["incident", "security"]
+    },
+    {
+      "id": "rpt-002",
+      "name": "Weekly Threat Intel Digest.pdf",
+      "url": "/docs/threat-intel-weekly.pdf",
+      "sizeBytes": 512008,
+      "createdAt": "2025-09-17T07:05:00Z",
+      "tags": ["intel", "security"]
+    },
+    {
+      "id": "rpt-003",
+      "name": "Compliance Checklist – Q3.pdf",
+      "url": "/docs/compliance-q3.pdf",
+      "sizeBytes": 1224000,
+      "createdAt": "2025-09-10T12:00:00Z",
+      "tags": ["compliance"]
+    },
+    {
+      "id": "rpt-004",
+      "name": "Capacity & Performance Report.pdf",
+      "url": "/docs/capacity-performance.pdf",
+      "sizeBytes": 2048120,
+      "createdAt": "2025-09-05T15:12:00Z",
+      "tags": ["infra", "metrics"]
+    },
+    {
+      "id": "rpt-005",
+      "name": "Quarterly Risk Posture.pdf",
+      "url": "/docs/risk-posture-q3.pdf",
+      "sizeBytes": 1104555,
+      "createdAt": "2025-08-30T10:00:00Z",
+      "tags": ["risk", "security"]
+    }
+  ]
+}
